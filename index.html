@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YGO Pack Arena Draft</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #0b0f19;
+            color: #00e5ff;
+            background-image:
+                linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .neon-border {
+            border: 1px solid #00e5ff;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3), inset 0 0 10px rgba(0, 229, 255, 0.1);
+            background: rgba(11, 15, 25, 0.8);
+        }
+
+        .btn-neon {
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid #00e5ff;
+            transition: all 0.2s;
+        }
+        .btn-neon:hover:not(:disabled) {
+            background: #00e5ff;
+            color: #000;
+            box-shadow: 0 0 15px #00e5ff;
+            cursor: pointer;
+        }
+        .btn-neon:disabled {
+            border-color: #555;
+            color: #555;
+            background: transparent;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .card-img-container {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card-img-container:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .pack-container:hover .pack-img {
+            transform: translateY(-5px);
+            filter: drop-shadow(0 0 10px #00e5ff);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #001f2b; }
+        ::-webkit-scrollbar-thumb { background: #00e5ff; border-radius: 4px; }
+
+        /* Modal animations */
+        @keyframes dropIn {
+            0% { transform: translateY(-50px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .drop-in { animation: dropIn 0.4s ease-out forwards; }
+
+        .toast {
+            position: fixed; top: 20px; right: 20px; z-index: 100;
+            background: rgba(0, 0, 0, 0.9); border-left: 4px solid #00e5ff;
+            padding: 10px 20px; animation: dropIn 0.3s;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header / Navbar -->
+    <header class="neon-border p-4 flex justify-between items-center m-2 rounded-lg">
+        <div>
+            <h1 class="text-2xl font-bold tracking-widest uppercase">DUEL TERMINAL OS</h1>
+            <p class="text-sm opacity-70">User ID: GOAT-PLAYER-01</p>
+        </div>
+        <div class="flex gap-6 items-center">
+            <div class="text-right">
+                <p class="text-xs uppercase opacity-70">Duelist Points</p>
+                <p class="text-3xl font-bold text-yellow-400" id="dp-counter">5000</p>
+            </div>
+            <button onclick="openExportModal()" class="btn-neon px-4 py-2 rounded font-bold">
+                [ EXPORT / COPY .YDK ]
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex gap-2 p-2 overflow-hidden">
+
+        <!-- Shop Section (Left) -->
+        <section class="w-1/4 neon-border rounded-lg p-4 flex flex-col">
+            <h2 class="text-xl border-b border-[#00e5ff] pb-2 mb-4">CARD SHOP</h2>
+            <div id="shop-container" class="flex-1 overflow-y-auto space-y-4">
+                <!-- Packs will be injected here -->
+            </div>
+        </section>
+
+        <!-- Trunk Section (Middle) -->
+        <section class="w-2/4 neon-border rounded-lg p-4 flex flex-col">
+            <div class="flex justify-between items-center border-b border-[#00e5ff] pb-2 mb-4">
+                <h2 class="text-xl">TRUNK (COLLECTION)</h2>
+                <div class="flex gap-2" id="filter-buttons">
+                    <button onclick="setFilter('All')" class="btn-neon px-2 py-1 text-xs rounded bg-[#00e5ff] text-black">ALL</button>
+                    <button onclick="setFilter('Monster')" class="btn-neon px-2 py-1 text-xs rounded">MONSTER</button>
+                    <button onclick="setFilter('Spell')" class="btn-neon px-2 py-1 text-xs rounded">SPELL</button>
+                    <button onclick="setFilter('Trap')" class="btn-neon px-2 py-1 text-xs rounded">TRAP</button>
+                </div>
+            </div>
+            <div id="trunk-container" class="flex-1 overflow-y-auto grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 content-start">
+                <!-- Trunk cards injected here -->
+            </div>
+        </section>
+
+        <!-- Deck Section (Right) -->
+        <section class="w-1/4 neon-border rounded-lg p-4 flex flex-col">
+            <div class="flex justify-between items-end border-b border-[#00e5ff] pb-2 mb-3">
+                <h2 class="text-xl">CURRENT DECK</h2>
+                <span id="deck-count" class="text-xs">0/60</span>
+            </div>
+
+            <!-- Contenedor dividido en 4 secciones con scroll global -->
+            <div id="deck-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                <!-- Las 4 secciones (Monsters, Spells, Traps, Extra) se inyectan acá -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Pack Opening Modal -->
+    <div id="pack-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col justify-center items-center">
+        <h2 class="text-3xl mb-8 tracking-widest text-[#00e5ff]" id="modal-title">PACK OPENED</h2>
+        <div id="pulled-cards" class="flex gap-4 mb-8 h-64">
+            <!-- Pulled cards go here -->
+        </div>
+        <button onclick="closeModal()" class="btn-neon px-8 py-3 rounded text-xl">ACCEPT</button>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Modal de Detalles del Pack -->
+    <div id="detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col justify-center items-center p-4">
+        <div class="neon-border bg-gray-900 w-11/12 max-w-4xl max-h-[85vh] flex flex-col rounded-lg p-4 shadow-[0_0_20px_rgba(0,229,255,0.2)]">
+            <div class="flex justify-between items-center border-b border-[#00e5ff] pb-2 mb-4">
+                <h2 class="text-xl font-bold text-[#00e5ff]" id="detail-modal-title">PACK DETAILS</h2>
+                <button onclick="closeDetailModal()" class="text-red-400 font-bold text-xl px-2 hover:text-red-300">&times;</button>
+            </div>
+
+            <!-- Lista de cartas agrupadas por tier -->
+            <div id="detail-modal-content" class="flex-1 overflow-y-auto space-y-4 text-sm pr-2">
+                <!-- Se inyectan las rarezas acá -->
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-gray-800 text-right">
+                <button onclick="closeDetailModal()" class="btn-neon px-6 py-2 rounded text-sm font-bold">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Exportación YDK -->
+    <div id="export-modal"
+         onclick="if(event.target === this) closeExportModal()"
+         class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col justify-center items-center p-4">
+
+        <div class="neon-border bg-gray-900 w-11/12 max-w-lg flex flex-col rounded-lg p-4 shadow-[0_0_20px_rgba(0,229,255,0.2)]">
+            <div class="flex justify-between items-center border-b border-[#00e5ff] pb-2 mb-4">
+                <h2 class="text-xl font-bold text-[#00e5ff]">EXPORT DECK (.YDK)</h2>
+                <button type="button"
+                        onclick="closeExportModal()"
+                        class="text-red-400 font-bold text-2xl px-2 hover:text-red-300 cursor-pointer">&times;</button>
+            </div>
+
+            <p class="text-xs text-gray-400 mb-2">Copiá el texto directamente para pegarlo en el simulador o descargá el archivo .ydk:</p>
+
+            <textarea id="ydk-output"
+                      readonly
+                      onclick="this.select()"
+                      class="w-full h-48 bg-black border border-[#00e5ff] text-green-400 font-mono text-xs p-2 rounded focus:outline-none mb-4 select-all resize-none"></textarea>
+
+            <div class="flex gap-2 justify-end">
+                <button onclick="copyYDKToClipboard()" class="btn-neon px-4 py-2 rounded text-xs font-bold">
+                    📋 COPY TO CLIPBOARD
+                </button>
+                <button onclick="downloadYDKFile()" class="btn-neon px-4 py-2 rounded text-xs font-bold">
+                    💾 DOWNLOAD .YDK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ESTADO GLOBAL ---
+        let DP = 5000;
+        let dbCards = [];
+        let dbRules = {
+            pull_rates: {},
+            packs: {} // Aquí se inyectarán LOB.json, IOC.json, etc.
+        };
+
+        let trunk = {};
+        let deck = {};
+        let currentFilter = 'All';
+
+        // --- DATOS DE RESPALDO (FALLBACKS) ---
+        // Se usarán si no se encuentran los archivos .json locales
+        const fallbackCards = [
+            {"id": 83994646, "n": "4-Starred Ladybug of Doom", "ty": "Flip Effect Monster", "r": "Insect"},
+            {"id": 89631139, "n": "Blue-Eyes White Dragon", "ty": "Normal Monster", "r": "Dragon"},
+            {"id": 46986414, "n": "Dark Magician", "ty": "Normal Monster", "r": "Spellcaster"},
+            {"id": 55144522, "n": "Pot of Greed", "ty": "Normal Spell", "r": "Spell"},
+            {"id": 44095762, "n": "Mirror Force", "ty": "Normal Trap", "r": "Trap"},
+            {"id": 30680659, "n": "Black Luster Soldier - Envoy of the Beginning", "ty": "Effect Monster", "r": "Warrior"}
+        ];
+
+        const fallbackRules = {
+            "pull_rates": {
+                "guaranteed_slot": { "rare": 75.0, "super_rare": 15.0, "ultra_rare": 8.0, "secret_rare": 2.0 }
+            },
+            "packs": {
+                "LOB": {
+                    "name": "Legend of Blue Eyes",
+                    "price": 150,
+                    "image": "https://images.ygoprodeck.com/images/sets/LOB.jpg",
+                    "pool": {
+                        "common": [83994646, 55144522, 44095762],
+                        "rare": [46986414],
+                        "super_rare": [],
+                        "ultra_rare": [89631139],
+                        "secret_rare": []
+                    }
+                },
+                "IOC": {
+                    "name": "Invasion of Chaos",
+                    "price": 300,
+                    "image": "https://images.ygoprodeck.com/images/sets/IOC.jpg",
+                    "pool": {
+                        "common": [83994646, 55144522],
+                        "rare": [44095762],
+                        "super_rare": [],
+                        "ultra_rare": [],
+                        "secret_rare": [30680659]
+                    }
+                }
+            }
+        };
+
+        // --- INICIALIZACIÓN Y CARGA DE DATOS ---
+        async function init() {
+            // 1. Cargar base de datos local de cartas
+            try {
+                const res = await fetch('./cards.json');
+                const data = await res.json();
+                dbCards = data.cards;
+            } catch (e) {
+                console.warn("No se encontró cards.json. Usando cartas de respaldo.");
+                dbCards = fallbackCards;
+            }
+
+            // 2. Cargar índice de reglas
+            try {
+                const res = await fetch('./rules.json');
+                const rulesIndex = await res.json();
+                dbRules.pull_rates = rulesIndex.pull_rates;
+
+                // 3. Cargar dinámicamente cada sobre desde la carpeta /packs/
+                const packPromises = rulesIndex.available_packs.map(packCode =>
+                    fetch(`./packs/${packCode}.json`).then(r => r.json())
+                );
+
+                const loadedPacks = await Promise.all(packPromises);
+
+                // Indexar los sobres en nuestro objeto dbRules.packs
+                loadedPacks.forEach(packData => {
+                    dbRules.packs[packData.id] = packData;
+                });
+
+            } catch (e) {
+                console.warn("No se encontraron los JSON de packs. Usando tienda de respaldo.");
+                dbRules = fallbackRules; // Carga el fallback si estás en live server sin archivos
+            }
+
+            updateDP();
+            renderShop();
+            renderTrunk();
+            renderDeck();
+        }
+
+        // --- MANEJO DE IMÁGENES ---
+        // Intenta cargar de images_hd, si falla usa ygoprodeck
+        function getCardImgSrc(id) {
+            return `images_hd/${id}.jpg`;
+        }
+        function handleImgError(img, id) {
+            img.onerror = null; // Previene bucle infinito si la URL de fallback también falla
+            img.src = `https://images.ygoprodeck.com/images/cards/${id}.jpg`;
+        }
+
+        // --- LÓGICA DE TIENDA Y GACHA ---
+        function renderShop() {
+            const container = document.getElementById('shop-container');
+            container.innerHTML = '';
+
+            for (const [packId, packData] of Object.entries(dbRules.packs)) {
+                const canAfford = DP >= packData.price;
+                const packHtml = `
+                    <div class="p-2 border border-gray-700 rounded bg-gray-900 pack-container text-center">
+                        <img src="${packData.image || 'https://via.placeholder.com/100x150?text=Pack'}"
+                             alt="${packData.name}"
+                             class="pack-img mx-auto h-32 object-cover mb-2 transition-transform"
+                             onerror="this.src='https://via.placeholder.com/100x150?text=No+Image'">
+                        <h3 class="text-sm font-bold h-10 overflow-hidden">${packData.name}</h3>
+                        <p class="text-yellow-400 font-bold mb-2">${packData.price} DP</p>
+                        <button onclick="buyPack('${packId}')"
+                                class="btn-neon w-full py-1 rounded text-sm"
+                                ${!canAfford ? 'disabled' : ''}>
+                            BUY PACK
+                        </button>
+                    </div>
+                `;
+                container.innerHTML += packHtml;
+            }
+        }
+
+        function buyPack(packId) {
+            const pack = dbRules.packs[packId];
+            if (DP < pack.price) {
+                showToast("Not enough DP!", "error");
+                return;
+            }
+
+            DP -= pack.price;
+            updateDP();
+            renderShop(); // Actualiza botones de compra
+
+            const pulled = generatePackCards(pack);
+
+            // Añadir al trunk
+            pulled.forEach(cardId => {
+                trunk[cardId] = (trunk[cardId] || 0) + 1;
+            });
+
+            showPackModal(pulled);
+            renderTrunk();
+        }
+
+        function getRandomCardFromList(idList) {
+            if (!idList || idList.length === 0) return null;
+            const randomIndex = Math.floor(Math.random() * idList.length);
+            return idList[randomIndex];
+        }
+
+        function generatePackCards(pack) {
+            const rates = dbRules.pull_rates.guaranteed_slot;
+            const pulledCards = [];
+
+            // 1. Obtener 4 cartas comunes
+            for (let i = 0; i < 4; i++) {
+                let cardId = getRandomCardFromList(pack.pool.common);
+                if (cardId) pulledCards.push(cardId);
+            }
+
+            // 2. Resolver la 5ta carta (Slot de suerte)
+            const roll = Math.random() * 100; // Número aleatorio entre 0.0 y 100.0
+            let selectedRarity = "common"; // Si falla todo la tirada, la 5ta es Común
+            let accum = 0;
+
+            // Evaluamos en orden de mayor a menor valor
+            if (rates.secret_rare && roll < (accum += rates.secret_rare)) {
+                selectedRarity = "secret_rare";
+            } else if (rates.ultra_rare && roll < (accum += rates.ultra_rare)) {
+                selectedRarity = "ultra_rare";
+            } else if (rates.super_rare && roll < (accum += rates.super_rare)) {
+                selectedRarity = "super_rare";
+            } else if (rates.rare && roll < (accum += rates.rare)) {
+                selectedRarity = "rare";
+            }
+
+            // Buscar una carta de la rareza elegida
+            let bonusCardId = getRandomCardFromList(pack.pool[selectedRarity]);
+
+            // Fallback: si el sobre no tiene de esa rareza, intenta dar una Rara y si no, Común
+            if (!bonusCardId) bonusCardId = getRandomCardFromList(pack.pool["rare"]);
+            if (!bonusCardId) bonusCardId = getRandomCardFromList(pack.pool["common"]);
+
+            if (bonusCardId) pulledCards.push(bonusCardId);
+
+            return pulledCards;
+        }
+
+        // --- LÓGICA DE COLECCIÓN Y MAZO ---
+        function setFilter(type) {
+            currentFilter = type;
+
+            // Actualizar estilos de botones
+            const btns = document.getElementById('filter-buttons').children;
+            for(let btn of btns) {
+                if(btn.innerText.toLowerCase() === type.toLowerCase()) {
+                    btn.classList.add('bg-[#00e5ff]', 'text-black');
+                } else {
+                    btn.classList.remove('bg-[#00e5ff]', 'text-black');
+                }
+            }
+            renderTrunk();
+        }
+
+        function getCardData(id) {
+            return dbCards.find(c => c.id == id);
+        }
+
+        function renderTrunk() {
+            const container = document.getElementById('trunk-container');
+            container.innerHTML = '';
+
+            // Filtrar y ordenar
+            let displayIds = Object.keys(trunk).filter(id => {
+                const qtyInTrunk = trunk[id];
+                const qtyInDeck = deck[id] || 0;
+                const available = qtyInTrunk - qtyInDeck;
+
+                if (available <= 0) return false;
+
+                const cardData = getCardData(id);
+                if (!cardData) return false;
+
+                if (currentFilter === 'All') return true;
+                if (currentFilter === 'Monster' && cardData.ty.includes('Monster')) return true;
+                if (currentFilter === 'Spell' && cardData.ty.includes('Spell')) return true;
+                if (currentFilter === 'Trap' && cardData.ty.includes('Trap')) return true;
+
+                return false;
+            });
+
+            displayIds.forEach(id => {
+                const qtyAvailable = trunk[id] - (deck[id] || 0);
+                const html = `
+                    <div class="card-img-container" onclick="addToDeck('${id}')" title="Click to add to Deck">
+                        <img src="${getCardImgSrc(id)}" onerror="handleImgError(this, '${id}')" class="w-full rounded">
+                        <div class="absolute bottom-0 right-0 bg-black border border-[#00e5ff] text-xs px-1 rounded">x${qtyAvailable}</div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        // --- RENDERIZADO DEL DECK DIVIDIDO EN 4 SECCIONES ---
+        window.renderDeck = function() {
+            const container = document.getElementById('deck-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const categories = {
+                monsters: { label: 'MONSTERS', color: 'text-yellow-400', cards: [] },
+                spells:   { label: 'SPELLS',   color: 'text-green-400',  cards: [] },
+                traps:    { label: 'TRAPS',    color: 'text-pink-400',   cards: [] },
+                extra:    { label: 'EXTRA DECK', color: 'text-purple-400', cards: [] }
+            };
+
+            let mainCount = 0;
+            let extraCount = 0;
+
+            Object.keys(deck).forEach(id => {
+                const qty = deck[id];
+                const cardData = getCardData(id);
+                if (!cardData) return;
+
+                // Detectar si pertenece al Extra Deck (Fusion/Synchro/etc. o ex === true)
+                const isExtra = cardData.ex === true || cardData.ty.includes('Fusion') || cardData.ty.includes('Synchro') || cardData.ty.includes('XYZ');
+
+                if (isExtra) {
+                    extraCount += qty;
+                    categories.extra.cards.push({ id, qty });
+                } else if (cardData.ty.includes('Monster')) {
+                    mainCount += qty;
+                    categories.monsters.cards.push({ id, qty });
+                } else if (cardData.ty.includes('Spell')) {
+                    mainCount += qty;
+                    categories.spells.cards.push({ id, qty });
+                } else if (cardData.ty.includes('Trap')) {
+                    mainCount += qty;
+                    categories.traps.cards.push({ id, qty });
+                }
+            });
+
+            // Actualizar el contador del Header del Mazo
+            const deckCountEl = document.getElementById('deck-count');
+            if (deckCountEl) {
+                deckCountEl.innerText = `MAIN: ${mainCount}/60 | EX: ${extraCount}`;
+                deckCountEl.className = `text-xs font-bold ${mainCount >= 40 && mainCount <= 60 ? 'text-green-400' : 'text-red-400'}`;
+            }
+
+            // Renderizar cada sección con su título, contador y grilla más pequeña (5 columnas)
+            Object.values(categories).forEach(cat => {
+                const totalInCat = cat.cards.reduce((sum, item) => sum + item.qty, 0);
+
+                let cardsHtml = '';
+                cat.cards.forEach(item => {
+                    for (let i = 0; i < item.qty; i++) {
+                        cardsHtml += `
+                            <div class="card-img-container" onclick="removeFromDeck('${item.id}')" title="Click to remove">
+                                <img src="${getCardImgSrc(item.id)}" onerror="handleImgError(this, '${item.id}')" class="w-full rounded hover:opacity-80 transition-opacity">
+                            </div>
+                        `;
+                    }
+                });
+
+                const sectionHtml = `
+                    <div class="border-b border-gray-800 pb-2">
+                        <div class="flex justify-between items-center mb-1 text-xs">
+                            <span class="font-bold tracking-wider ${cat.color}">${cat.label}</span>
+                            <span class="text-gray-500 font-mono">(${totalInCat})</span>
+                        </div>
+                        ${totalInCat > 0
+                            ? `<div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5">${cardsHtml}</div>`
+                            : `<p class="text-[10px] text-gray-600 italic">Empty</p>`}
+                    </div>
+                `;
+                container.innerHTML += sectionHtml;
+            });
+        };
+
+        function addToDeck(id) {
+            const totalCards = Object.values(deck).reduce((a, b) => a + b, 0);
+            if (totalCards >= 60) {
+                showToast("Deck is full (60 cards max)!"); return;
+            }
+            if ((deck[id] || 0) >= 3) {
+                showToast("You can only have 3 copies of a card!"); return;
+            }
+
+            deck[id] = (deck[id] || 0) + 1;
+            renderTrunk();
+            renderDeck();
+        }
+
+        function removeFromDeck(id) {
+            if (deck[id] > 0) {
+                deck[id]--;
+                if (deck[id] === 0) delete deck[id];
+                renderTrunk();
+                renderDeck();
+            }
+        }
+
+        // --- ACTUALIZACIÓN DE TIENDA CON BOTÓN DETAIL ---
+
+        function renderShop() {
+            const container = document.getElementById('shop-container');
+            container.innerHTML = '';
+
+            for (const [packId, packData] of Object.entries(dbRules.packs)) {
+                const canAfford = DP >= packData.price;
+                const packHtml = `
+                    <div class="p-2 border border-gray-700 rounded bg-gray-900 pack-container text-center flex flex-col justify-between">
+                        <div>
+                            <img src="${packData.image || 'https://via.placeholder.com/100x150?text=Pack'}"
+                                 alt="${packData.name}"
+                                 class="pack-img mx-auto h-32 object-cover mb-2 transition-transform"
+                                 onerror="this.src='https://via.placeholder.com/100x150?text=No+Image'">
+                            <h3 class="text-sm font-bold h-10 overflow-hidden leading-tight">${packData.name}</h3>
+                            <p class="text-yellow-400 font-bold mb-2">${packData.price} DP</p>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="buyPack('${packId}')"
+                                    class="btn-neon flex-1 py-1 rounded text-xs font-bold"
+                                    ${!canAfford ? 'disabled' : ''}>
+                                BUY
+                            </button>
+                            <button onclick="showPackDetails('${packId}')"
+                                    class="btn-neon px-3 py-1 rounded text-xs">
+                                DETAIL
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += packHtml;
+            }
+        }
+
+        // --- MOSTRAR DETALLES DEL SOBRE CON IMÁGENES POR TIER ---
+        function showPackDetails(packId) {
+            const pack = dbRules.packs[packId];
+            if (!pack) return;
+
+            document.getElementById('detail-modal-title').innerText = `${pack.name} [${packId}]`;
+            const container = document.getElementById('detail-modal-content');
+            container.innerHTML = '';
+
+            const rarityConfig = {
+                secret_rare: { label: 'Secret Rare', color: 'text-purple-400 border-purple-500' },
+                ultra_rare:  { label: 'Ultra Rare',  color: 'text-yellow-400 border-yellow-500' },
+                super_rare:  { label: 'Super Rare',  color: 'text-teal-300 border-teal-500' },
+                rare:        { label: 'Rare',        color: 'text-blue-400 border-blue-500' },
+                common:      { label: 'Common',      color: 'text-gray-300 border-gray-600' }
+            };
+
+            let totalCardsInPack = 0;
+
+            for (const [rarityKey, config] of Object.entries(rarityConfig)) {
+                const ids = pack.pool[rarityKey];
+                if (!ids || ids.length === 0) continue;
+
+                totalCardsInPack += ids.length;
+
+                // Generar grilla de imágenes
+                const cardsGridHtml = ids.map(id => {
+                    const card = getCardData(id);
+                    const cardName = card ? card.n : `Card #${id}`;
+                    return `
+                        <div class="card-img-container" title="${cardName}">
+                            <img src="${getCardImgSrc(id)}"
+                                 onerror="handleImgError(this, '${id}')"
+                                 alt="${cardName}"
+                                 class="w-full rounded shadow hover:scale-110 transition-transform duration-200">
+                        </div>
+                    `;
+                }).join('');
+
+                const sectionHtml = `
+                    <div class="border-l-2 ${config.color} pl-3 py-2 bg-black bg-opacity-40 rounded-r mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold uppercase text-xs tracking-wider ${config.color.split(' ')[0]}">
+                                ${config.label}
+                            </span>
+                            <span class="text-xs text-gray-500">(${ids.length} cartas)</span>
+                        </div>
+                        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                            ${cardsGridHtml}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += sectionHtml;
+            }
+
+            if (totalCardsInPack === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center italic">No hay información de cartas para este sobre.</p>';
+            }
+
+            document.getElementById('detail-modal').classList.remove('hidden');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+        }
+
+        // --- UTILIDADES Y UI ---
+        function updateDP() {
+            document.getElementById('dp-counter').innerText = DP;
+        }
+
+        function showPackModal(cardIds) {
+            const modal = document.getElementById('pack-modal');
+            const container = document.getElementById('pulled-cards');
+            container.innerHTML = '';
+
+            cardIds.forEach((id, index) => {
+                // Pequeño delay en la animación para cada carta
+                setTimeout(() => {
+                    const html = `<img src="${getCardImgSrc(id)}" onerror="handleImgError(this, '${id}')" class="h-full rounded drop-in shadow-[0_0_15px_#00e5ff]">`;
+                    container.innerHTML += html;
+                }, index * 150);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        // --- LÓGICA DE EXPORTACIÓN YDK ---
+        let currentYdkText = "";
+
+        window.openExportModal = function() {
+            let mainCards = [];
+            let extraCards = [];
+
+            Object.keys(deck).forEach(id => {
+                const qty = deck[id];
+                const cardData = getCardData(id);
+                const isExtra = cardData && (cardData.ex === true || cardData.ty.includes('Fusion') || cardData.ty.includes('Synchro') || cardData.ty.includes('XYZ'));
+
+                for (let i = 0; i < qty; i++) {
+                    if (isExtra) {
+                        extraCards.push(id);
+                    } else {
+                        mainCards.push(id);
+                    }
+                }
+            });
+
+            if (mainCards.length < 40) {
+                showToast("Your Main Deck must have at least 40 cards to export!", "error");
+                return;
+            }
+
+            let ydkContent = "#created by Web Tag Force\n#main\n";
+            mainCards.forEach(id => ydkContent += `${id}\n`);
+            ydkContent += "#extra\n";
+            extraCards.forEach(id => ydkContent += `${id}\n`);
+            ydkContent += "!side\n";
+
+            currentYdkText = ydkContent;
+            document.getElementById('ydk-output').value = ydkContent;
+            document.getElementById('export-modal').classList.remove('hidden');
+        };
+
+        window.closeExportModal = function() {
+            const modal = document.getElementById('export-modal');
+            if (modal) modal.classList.add('hidden');
+        };
+
+        window.copyYDKToClipboard = function() {
+            if (!currentYdkText) return;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(currentYdkText).then(() => {
+                    showToast("YDK text copied to clipboard!", "info");
+                }).catch(() => {
+                    fallbackCopyText();
+                });
+            } else {
+                fallbackCopyText();
+            }
+        };
+
+        function fallbackCopyText() {
+            const textarea = document.getElementById('ydk-output');
+            textarea.select();
+            document.execCommand('copy');
+            showToast("YDK text copied to clipboard!", "info");
+        }
+
+        window.downloadYDKFile = function() {
+            if (!currentYdkText) return;
+            const blob = new Blob([currentYdkText], { type: "text/plain" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "my_deck.ydk";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        };
+
+        function closeModal() {
+            document.getElementById('pack-modal').classList.add('hidden');
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast text-sm';
+            toast.style.borderColor = type === 'error' ? '#ff0055' : '#00e5ff';
+            toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function exportYDK() {
+            const totalCards = Object.values(deck).reduce((a, b) => a + b, 0);
+            if(totalCards < 40) {
+                showToast("Your deck must have at least 40 cards to export!", "error");
+                return;
+            }
+
+            let ydkContent = "#created by Web Tag Force\n#main\n";
+            Object.keys(deck).forEach(id => {
+                const qty = deck[id];
+                for(let i=0; i<qty; i++) {
+                    ydkContent += `${id}\n`;
+                }
+            });
+            ydkContent += "#extra\n!side\n";
+            ydkContent += "#extra\n!side\n";
+
+            const blob = new Blob([ydkContent], { type: "text/plain" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "my_deck.ydk";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+        // Iniciar App
+        window.onload = init;
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "pull_rates": {
+    "guaranteed_slot": {
+      "secret_rare": 2.0,
+      "ultra_rare": 8.0,
+      "super_rare": 15.0,
+      "rare": 75.0
+    }
+  },
+  "available_packs": [
+    "LOB",
+    "MRD",
+    "MRL",
+    "PSV",
+    "LON",
+    "LOD",
+    "PGD",
+    "MFC",
+    "DCR",
+    "IOC"
+  ]
+}
