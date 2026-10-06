@@ -10,9 +10,17 @@ PACKS_TO_FETCH = [
     {"name": "Labyrinth of Nightmare", "price": 200, "code": "LON"},
     {"name": "Legacy of Darkness", "price": 200, "code": "LOD"},
     {"name": "Pharaonic Guardian", "price": 200, "code": "PGD"},
-    {"name": "Magician's Force", "price": 250, "code": "MFC"},
-    {"name": "Dark Crisis", "price": 250, "code": "DCR"},
+    {"name": "Magician's Force", "price": 200, "code": "MFC"},
+    {"name": "Dark Crisis", "price": 200, "code": "DCR"},
+    {"name": "Ancient Sanctuary", "price": 250, "code": "AST"},
+    {"name": "Soul of the Duelist", "price": 250, "code": "SOD"},
+    {"name": "Rise of Destiny", "price": 250, "code": "ROD"},
+    {"name": "Flaming Eternity", "price": 250, "code": "FET"},
+    {"name": "The Lost Millennium", "price": 250, "code": "TLM"},
     {"name": "Invasion of Chaos", "price": 300, "code": "IOC"},
+    {"name": "Dark Beginning 1", "price": 300, "code": "DB1"},
+    {"name": "Dark Beginning 2", "price": 300, "code": "DB2"},
+    {"name": "Dark Revelation Volume 1", "price": 300, "code": "DR1"}
 ]
 
 API_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php"

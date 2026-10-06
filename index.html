@@ -85,13 +85,16 @@
             <h1 class="text-2xl font-bold tracking-widest uppercase">DUEL TERMINAL OS</h1>
             <p class="text-sm opacity-70">User ID: GOAT-PLAYER-01</p>
         </div>
-        <div class="flex gap-6 items-center">
-            <div class="text-right">
-                <p class="text-xs uppercase opacity-70">Duelist Points</p>
-                <p class="text-3xl font-bold text-yellow-400" id="dp-counter">5000</p>
-            </div>
+        <div class="flex gap-4 items-center">
+        <div class="text-right">
+            <p class="text-xs uppercase opacity-70">Duelist Points</p>
+            <p class="text-3xl font-bold text-yellow-400" id="dp-counter">5000</p>
+        </div>
+            <button onclick="openSettingsModal()" class="btn-neon px-3 py-2 rounded text-xl" title="Settings">
+                ⚙️
+            </button>
             <button onclick="openExportModal()" class="btn-neon px-4 py-2 rounded font-bold">
-                [ EXPORT / COPY .YDK ]
+                [ EXPORT .YDK ]
             </button>
         </div>
     </header>
@@ -182,6 +185,64 @@
              class="max-h-[90vh] max-w-full rounded-xl shadow-[0_0_30px_rgba(0,229,255,0.4)]">
     </div>
 
+    <!-- Modal de Configuración (Settings) -->
+    <div id="settings-modal"
+         onclick="if(event.target === this) closeSettingsModal()"
+         class="hidden fixed inset-0 bg-black bg-opacity-90 z-[70] flex justify-center items-center p-4">
+
+        <div class="neon-border bg-gray-900 w-full max-w-md rounded-lg p-4 shadow-[0_0_20px_rgba(0,229,255,0.2)]">
+            <div class="flex justify-between items-center border-b border-[#00e5ff] pb-2 mb-4">
+                <h2 class="text-xl font-bold text-[#00e5ff]">⚙️ SYSTEM SETTINGS</h2>
+                <button type="button" onclick="closeSettingsModal()" class="text-red-400 font-bold text-2xl px-2 hover:text-red-300">&times;</button>
+            </div>
+
+            <!-- Configurar DP -->
+            <div class="mb-6">
+                <label class="block text-xs text-gray-400 mb-1 font-bold">DUELIST POINTS (DP)</label>
+                <input type="number" id="settings-dp-input"
+                       class="w-full bg-black border border-[#00e5ff] text-yellow-400 font-bold p-2 rounded focus:outline-none focus:shadow-[0_0_10px_#00e5ff]"
+                       min="0" step="100">
+            </div>
+
+            <!-- Habilitar/Deshabilitar Sobres -->
+            <div class="mb-6">
+                <label class="block text-xs text-gray-400 mb-1 font-bold">ENABLED PACKS</label>
+                <div id="settings-packs-list" class="space-y-2 max-h-48 overflow-y-auto bg-black p-2 rounded border border-gray-700">
+                    <!-- Checkboxes de expansiones se inyectan acá -->
+                </div>
+            </div>
+
+            <div class="flex justify-between border-t border-gray-800 pt-4 mt-4">
+                <!-- Botón de Reset -->
+                <button onclick="manualReset()" class="btn-neon px-4 py-2 rounded text-sm font-bold border-red-500 text-red-400 hover:bg-red-900 hover:text-white">
+                    ⚠️ RESET PROGRESS
+                </button>
+
+                <div class="flex gap-2">
+                    <button onclick="closeSettingsModal()" class="btn-neon px-4 py-2 rounded text-sm font-bold border-gray-500 text-gray-400 hover:bg-gray-800 hover:text-white">CANCEL</button>
+                    <button onclick="saveSettings()" class="btn-neon px-6 py-2 rounded text-sm font-bold bg-[#00e5ff] text-black hover:bg-white">SAVE & RESTART</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación Custom -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-[80] flex justify-center items-center p-4">
+        <div class="bg-gray-900 w-full max-w-sm rounded-lg p-5 shadow-[0_0_20px_rgba(255,0,0,0.3)] text-center border border-red-500">
+            <h2 class="text-xl font-bold text-red-400 mb-3" id="confirm-title">WARNING</h2>
+            <p class="text-sm text-gray-300 mb-6" id="confirm-message">Are you sure?</p>
+
+            <div class="flex justify-center gap-4">
+                <button id="btn-confirm-no" class="btn-neon px-4 py-2 rounded text-sm font-bold border-gray-500 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">
+                    CANCEL
+                </button>
+                <button id="btn-confirm-yes" class="btn-neon px-4 py-2 rounded text-sm font-bold bg-red-600 text-white hover:bg-red-500 transition-colors">
+                    YES, DO IT
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Exportación YDK -->
     <div id="export-modal"
          onclick="if(event.target === this) closeExportModal()"
@@ -225,6 +286,7 @@
         let trunk = {};
         let deck = {};
         let currentFilter = 'All';
+        let enabledPacks = []; // Guardará los IDs de los sobres habilitados (ej: ['LOB', 'IOC'])
 
         // --- DATOS DE RESPALDO (FALLBACKS) ---
         // Se usarán si no se encuentran los archivos .json locales
@@ -282,10 +344,17 @@
             }
 
             // 2. Cargar índice de reglas
-            try {
+           try {
                 const res = await fetch('./rules.json');
                 const rulesIndex = await res.json();
                 dbRules.pull_rates = rulesIndex.pull_rates;
+                dbRules.available_packs = rulesIndex.available_packs;
+
+                // --- NUEVO: Habilitar todos los sobres por defecto la primera vez ---
+                if (enabledPacks.length === 0 && dbRules.available_packs) {
+                    enabledPacks = [...dbRules.available_packs];
+                }
+                // --------------------------------------------------------------------
 
                 // 3. Cargar dinámicamente cada sobre desde la carpeta /packs/
                 const packPromises = rulesIndex.available_packs.map(packCode =>
@@ -302,7 +371,13 @@
             } catch (e) {
                 console.warn("No se encontraron los JSON de packs. Usando tienda de respaldo.");
                 dbRules = fallbackRules; // Carga el fallback si estás en live server sin archivos
-            }
+
+                // --- NUEVO: Hacer lo mismo por si entramos al fallback ---
+                if (enabledPacks.length === 0 && dbRules.available_packs) {
+                    enabledPacks = [...dbRules.available_packs];
+                }
+                // ---------------------------------------------------------
+}
 
             updateDP();
             renderShop();
@@ -469,6 +544,36 @@
                 container.innerHTML += html;
             });
         }
+
+        window.renderShop = function() {
+            const container = document.getElementById('shop-container');
+            container.innerHTML = '';
+
+            // Iteramos solo sobre los sobres habilitados
+            enabledPacks.forEach(packId => {
+                const packData = dbRules.packs[packId];
+                if (!packData) return;
+
+                const canAfford = DP >= packData.price;
+                const packHtml = `
+                    <div class="p-2 border border-gray-700 rounded bg-gray-900 pack-container text-center flex flex-col justify-between">
+                        <div>
+                            <img src="${packData.image || 'https://via.placeholder.com/100x150?text=Pack'}"
+                                 alt="${packData.name}"
+                                 class="pack-img mx-auto h-32 object-cover mb-2 transition-transform"
+                                 onerror="this.src='https://via.placeholder.com/100x150?text=No+Image'">
+                            <h3 class="text-sm font-bold h-10 overflow-hidden leading-tight">${packData.name}</h3>
+                            <p class="text-yellow-400 font-bold mb-2">${packData.price} DP</p>
+                        </div>
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="buyPack('${packId}')" class="btn-neon flex-1 py-1 rounded text-xs font-bold" ${!canAfford ? 'disabled' : ''}>BUY</button>
+                            <button onclick="showPackDetails('${packId}')" class="btn-neon px-3 py-1 rounded text-xs">DETAIL</button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += packHtml;
+            });
+        };
 
         // --- RENDERIZADO DEL DECK DIVIDIDO EN 4 SECCIONES ---
         window.renderDeck = function() {
@@ -673,6 +778,33 @@
         }
 
         // --- UTILIDADES Y UI ---
+
+        // CUSTOM CONFIRM BOX //
+        window.customConfirm = function(message, title = "WARNING") {
+            return new Promise((resolve) => {
+                document.getElementById('confirm-title').innerText = title;
+                document.getElementById('confirm-message').innerText = message;
+
+                const modal = document.getElementById('custom-confirm-modal');
+                const btnYes = document.getElementById('btn-confirm-yes');
+                const btnNo = document.getElementById('btn-confirm-no');
+
+                modal.classList.remove('hidden');
+
+                // Función para limpiar y cerrar
+                const cleanup = (result) => {
+                    modal.classList.add('hidden');
+                    // Removemos los event listeners para que no se acumulen
+                    btnYes.onclick = null;
+                    btnNo.onclick = null;
+                    resolve(result);
+                };
+
+                btnYes.onclick = () => cleanup(true);
+                btnNo.onclick = () => cleanup(false);
+            });
+        };
+
         function updateDP() {
             document.getElementById('dp-counter').innerText = DP;
         }
@@ -709,6 +841,99 @@
 
         window.closeLargeCard = function() {
             document.getElementById('large-card-modal').classList.add('hidden');
+        };
+
+        // --- LÓGICA DE CONFIGURACIÓN (SETTINGS) ---
+
+        window.openSettingsModal = function() {
+            // 1. Cargar el DP actual en el input
+            document.getElementById('settings-dp-input').value = DP;
+
+            // 2. Generar la lista de checkboxes
+            const listContainer = document.getElementById('settings-packs-list');
+            listContainer.innerHTML = '';
+
+            if (dbRules.available_packs) {
+                dbRules.available_packs.forEach(packId => {
+                    const packInfo = dbRules.packs[packId];
+                    const packName = packInfo ? packInfo.name : packId;
+                    const isChecked = enabledPacks.includes(packId) ? 'checked' : '';
+
+                    const html = `
+                        <label class="flex items-center gap-3 p-1 hover:bg-gray-800 rounded cursor-pointer transition-colors">
+                            <input type="checkbox" value="${packId}" class="pack-checkbox w-4 h-4 accent-[#00e5ff]" ${isChecked}>
+                            <span class="text-sm text-gray-200">
+                                <span class="font-bold text-[#00e5ff]">[${packId}]</span> ${packName}
+                            </span>
+                        </label>
+                    `;
+                    listContainer.innerHTML += html;
+                });
+            }
+
+            document.getElementById('settings-modal').classList.remove('hidden');
+        };
+
+        window.closeSettingsModal = function() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        };
+
+        window.resetGameData = function(newDP) {
+            // 1. Limpiar Baúl y Mazo
+            trunk = {};
+            deck = {};
+
+            // 2. Asignar los nuevos DP
+            DP = newDP;
+
+            // 3. Actualizar toda la interfaz
+            updateDP();
+            renderTrunk();
+            renderDeck();
+        };
+
+        window.manualReset = async function() {
+            const confirmed = await customConfirm("Are you sure you want to reset all your progress?\nYou will lose your cards and deck.");
+
+            if (confirmed) {
+                // Resetea a 5000 DP (o lo que escribas en el input) y limpia cartas
+                const inputDP = parseInt(document.getElementById('settings-dp-input').value, 10);
+                const startingDP = (!isNaN(inputDP) && inputDP >= 0) ? inputDP : 5000;
+
+                resetGameData(startingDP);
+                closeSettingsModal();
+                showToast("Progress has been reset!", "info");
+            }
+        };
+
+        window.saveSettings = async function() {
+            // Preguntar antes de aplicar, ya que va a borrar el progreso
+            const confirmed = await customConfirm("Applying new settings will restart your run and clear your cards.\nContinue?", "APPLY SETTINGS");
+
+            if (!confirmed) {
+                return;
+            }
+
+            // 1. Guardar el nuevo valor de DP
+            const newDP = parseInt(document.getElementById('settings-dp-input').value, 10);
+            const finalDP = (!isNaN(newDP) && newDP >= 0) ? newDP : 5000;
+
+            // 2. Leer qué checkboxes quedaron marcados
+            const checkboxes = document.querySelectorAll('.pack-checkbox');
+            enabledPacks = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    enabledPacks.push(cb.value);
+                }
+            });
+
+            // 3. Ejecutar el reseteo automático de cartas y asignar el DP
+            resetGameData(finalDP);
+
+            // 4. Re-renderizar la tienda y cerrar
+            renderShop();
+            closeSettingsModal();
+            showToast("Settings applied & Run restarted!", "info");
         };
 
         // --- LÓGICA DE EXPORTACIÓN YDK ---
