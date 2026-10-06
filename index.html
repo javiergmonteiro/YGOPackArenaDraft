@@ -169,6 +169,19 @@
         </div>
     </div>
 
+    <!-- Modal de Imagen en Grande -->
+    <div id="large-card-modal"
+         onclick="closeLargeCard()"
+         oncontextmenu="event.preventDefault(); closeLargeCard();"
+         class="hidden fixed inset-0 bg-black bg-opacity-90 z-[60] flex justify-center items-center p-4 cursor-pointer">
+
+        <!-- Imagen ocupando hasta el 90% del alto de la pantalla -->
+        <img id="lc-image"
+             src=""
+             alt="Large Card"
+             class="max-h-[90vh] max-w-full rounded-xl shadow-[0_0_30px_rgba(0,229,255,0.4)]">
+    </div>
+
     <!-- Modal de Exportación YDK -->
     <div id="export-modal"
          onclick="if(event.target === this) closeExportModal()"
@@ -445,7 +458,10 @@
             displayIds.forEach(id => {
                 const qtyAvailable = trunk[id] - (deck[id] || 0);
                 const html = `
-                    <div class="card-img-container" onclick="addToDeck('${id}')" title="Click to add to Deck">
+                    <div class="card-img-container cursor-pointer relative"
+                         onclick="addToDeck('${id}')"
+                         oncontextmenu="showLargeCard(event, '${id}')"
+                         title="Left click: Add to Deck | Right click: View Card">
                         <img src="${getCardImgSrc(id)}" onerror="handleImgError(this, '${id}')" class="w-full rounded">
                         <div class="absolute bottom-0 right-0 bg-black border border-[#00e5ff] text-xs px-1 rounded">x${qtyAvailable}</div>
                     </div>
@@ -676,6 +692,24 @@
 
             modal.classList.remove('hidden');
         }
+
+        // --- LÓGICA PARA VER IMAGEN EN GRANDE (CLICK DERECHO) ---
+        window.showLargeCard = function(event, id) {
+            // Evita que se abra el menú contextual clásico de Windows/Chrome
+            event.preventDefault();
+
+            const imgEl = document.getElementById('lc-image');
+            imgEl.src = getCardImgSrc(id);
+
+            // Le aplicamos el mismo fallback por si esta imagen específica falla
+            imgEl.onerror = function() { handleImgError(this, id); };
+
+            document.getElementById('large-card-modal').classList.remove('hidden');
+        };
+
+        window.closeLargeCard = function() {
+            document.getElementById('large-card-modal').classList.add('hidden');
+        };
 
         // --- LÓGICA DE EXPORTACIÓN YDK ---
         let currentYdkText = "";
