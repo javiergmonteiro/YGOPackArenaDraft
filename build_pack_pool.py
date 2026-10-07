@@ -4,7 +4,7 @@ import os
 import time
 
 rules_file = json.load(open("rules.json"))
-API = "https://db.ygoprodeck.com/api/v7/cardinfo.php?format=goat"
+API = "https://db.ygoprodeck.com/api/v7/cardinfo.php?format=Edison"
 packs_dir = 'packs'
 pool = []
 

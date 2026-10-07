@@ -20,7 +20,12 @@ PACKS_TO_FETCH = [
     {"name": "Invasion of Chaos", "price": 300, "code": "IOC"},
     {"name": "Dark Beginning 1", "price": 300, "code": "DB1"},
     {"name": "Dark Beginning 2", "price": 300, "code": "DB2"},
-    {"name": "Dark Revelation Volume 1", "price": 300, "code": "DR1"}
+    {"name": "Dark Revelation Volume 1", "price": 300, "code": "DR1"},
+    {"name": "Cybernetic Revolution", "price": 300, "code": "CRV"},
+    {"name": "The Duelist Genesis", "price": 300, "code": "TDGS"},
+    {"name": "Phantom Darkness", "price": 300, "code": "PTDN"},
+    {"name": "Gladiator's Assault", "price": 200, "code": "GLAS"},
+    {"name": "Light of Destruction", "price": 200, "code": "LODT"}
 ]
 
 API_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
@@ -37,6 +42,11 @@ PULL_RATES = {
     }
 }
 
+GOAT_DEFAULT_PACKS =  ["LOB", "MRD", "MRL", "PSV", "LON", "LOD", "IOC", "DB1", "DB2", "DR1"]
+GOAT_DEFAULT_DPS =  10000
+
+EDISON_DEFAULT_PACKS =  ["MRD", "MRL","IOC", "DR1", "CRV", "TDGS", "PTDN", "GLAS", "LODT"]
+EDISON_DEFAULT_DPS = 20000
 
 def normalize_rarity(rarity_str):
     r = rarity_str.lower()
@@ -123,7 +133,11 @@ def generate_packs():
     # Generar el rules.json principal que actúa como índice
     rules_index = {
         "pull_rates": PULL_RATES,
-        "available_packs": available_packs
+        "available_packs": available_packs,
+        "goat_recommended_packs": GOAT_DEFAULT_PACKS,
+        "goat_recommended_dp": GOAT_DEFAULT_DPS,
+        "edison_recommended_packs": EDISON_DEFAULT_PACKS,
+        "edison_recommended_dp": EDISON_DEFAULT_DPS,
     }
 
     with open(OUTPUT_RULES, 'w', encoding='utf-8') as f:

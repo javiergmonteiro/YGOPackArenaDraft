@@ -26,6 +26,36 @@
     "IOC",
     "DB1",
     "DB2",
+    "DR1",
+    "CRV",
+    "TDGS",
+    "PTDN",
+    "GLAS",
+    "LODT"
+  ],
+  "goat_recommended_packs": [
+    "LOB",
+    "MRD",
+    "MRL",
+    "PSV",
+    "LON",
+    "LOD",
+    "IOC",
+    "DB1",
+    "DB2",
     "DR1"
-  ]
+  ],
+  "goat_recommended_dp": 10000,
+  "edison_recommended_packs": [
+    "MRD",
+    "MRL",
+    "IOC",
+    "DR1",
+    "CRV",
+    "TDGS",
+    "PTDN",
+    "GLAS",
+    "LODT"
+  ],
+  "edison_recommended_dp": 20000
 }
