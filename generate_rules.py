@@ -1,6 +1,12 @@
 import json
 import os
+
 import requests
+
+API_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
+OUTPUT_RULES = "rules.json"
+PACKS_DIR = "packs"
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 PACKS_TO_FETCH = [
     {"name": "Legend of Blue Eyes White Dragon", "price": 150, "code": "LOB"},
@@ -25,12 +31,8 @@ PACKS_TO_FETCH = [
     {"name": "The Duelist Genesis", "price": 300, "code": "TDGS"},
     {"name": "Phantom Darkness", "price": 300, "code": "PTDN"},
     {"name": "Gladiator's Assault", "price": 200, "code": "GLAS"},
-    {"name": "Light of Destruction", "price": 200, "code": "LODT"}
+    {"name": "Light of Destruction", "price": 200, "code": "LODT"},
 ]
-
-API_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
-OUTPUT_RULES = "rules.json"
-PACKS_DIR = "packs"
 
 PULL_RATES = {
     "guaranteed_slot": {
@@ -38,110 +40,99 @@ PULL_RATES = {
         "super_rare": 25.0,
         "ultra_rare": 15.0,
         "secret_rare": 5.0,
-        "ultimate_rare": 5.0
+        "ultimate_rare": 5.0,
     }
 }
 
-GOAT_DEFAULT_PACKS =  ["LOB", "MRD", "MRL", "PSV", "LON", "LOD", "IOC", "DB1", "DB2", "DR1"]
-GOAT_DEFAULT_DPS =  10000
+RARITIES = ["common", *PULL_RATES["guaranteed_slot"]]
 
-EDISON_DEFAULT_PACKS =  ["MRD", "MRL","IOC", "DR1", "CRV", "TDGS", "PTDN", "GLAS", "LODT"]
+GOAT_DEFAULT_PACKS = ["LOB", "MRD", "MRL", "PSV", "LON", "LOD", "IOC", "DB1", "DB2", "DR1"]
+GOAT_DEFAULT_DPS = 10000
+
+EDISON_DEFAULT_PACKS = ["MRD", "MRL", "IOC", "DR1", "CRV", "TDGS", "PTDN", "GLAS", "LODT"]
 EDISON_DEFAULT_DPS = 20000
+
+# El orden importa: "secret rare" y "normal rare" contienen "rare"
+RARITY_KEYWORDS = [
+    ("secret rare", "secret_rare"),
+    ("ultimate rare", "ultimate_rare"),
+    ("ultra rare", "ultra_rare"),
+    ("super rare", "super_rare"),
+    ("normal", "common"),
+    ("rare", "rare"),
+]
+
 
 def normalize_rarity(rarity_str):
     r = rarity_str.lower()
-    if "secret rare" in r:
-        return "secret_rare"
-    if "ultimate rare" in r:
-        return "ultimate_rare"
-    elif "ultra rare" in r:
-        return "ultra_rare"
-    elif "super rare" in r:
-        return "super_rare"
-    elif "common" in r or "short print" in r or "normal" in r:
-        return "common"
-    elif "rare" in r:
-        return "rare"
+    for keyword, rarity in RARITY_KEYWORDS:
+        if keyword in r:
+            return rarity
     return "common"
 
 
-def generate_packs():
-    if not os.path.exists(PACKS_DIR):
-        os.makedirs(PACKS_DIR)
+def write_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
-    headers = {'User-Agent': 'Mozilla/5.0'}
+
+def build_pools(cards, pack_code):
+    pools = {rarity: set() for rarity in RARITIES}
+    prefix = f"{pack_code}-"
+
+    for card in cards:
+        # Buscar la rareza por el prefijo del código del set (ej. "LOB-EN001")
+        for s in card.get("card_sets", []):
+            if s.get("set_code", "").upper().startswith(prefix):
+                pools[normalize_rarity(s["set_rarity"])].add(card["id"])
+                break
+        else:
+            # Si la API no detalla el código, la mandamos a common como resguardo
+            pools["common"].add(card["id"])
+
+    return {rarity: sorted(ids) for rarity, ids in pools.items()}
+
+
+def generate_packs():
+    os.makedirs(PACKS_DIR, exist_ok=True)
     available_packs = []
 
     for pack in PACKS_TO_FETCH:
-        set_name = pack["name"]
-        pack_code = pack["code"]
-        price = pack["price"]
-
-        print(f"Obteniendo datos de: {pack_code}...")
+        code = pack["code"]
+        print(f"Obteniendo datos de: {code}...")
 
         try:
-            # Pedimos a la API todas las cartas que pertenezcan a este set
-            response = requests.get(API_URL, params={'cardset': set_name}, headers=headers, timeout=10)
+            response = requests.get(API_URL, params={"cardset": pack["name"]}, headers=HEADERS, timeout=10)
             if response.status_code != 200:
-                print(f"❌ Error HTTP {response.status_code} en {pack_code}. Ignorando.")
+                print(f"❌ Error HTTP {response.status_code} en {code}. Ignorando.")
                 continue
 
-            cards = response.json().get("data", [])
+            pool = build_pools(response.json().get("data", []), code)
 
-            pools = {"common": set(), "rare": set(), "super_rare": set(), "ultra_rare": set(), "secret_rare": set(), "ultimate_rare": set()}
+            write_json(os.path.join(PACKS_DIR, f"{code}.json"), {
+                "id": code,
+                "name": pack["name"],
+                "price": pack["price"],
+                "image": f"https://images.ygoprodeck.com/images/sets/{code}.jpg",
+                "pool": pool,
+            })
 
-            for card in cards:
-                card_id = card["id"]
-
-                # Buscar la rareza usando el prefijo del código (ej. LOB) en lugar del nombre completo
-                added = False
-                for s in card.get("card_sets", []):
-                    set_code_api = s.get("set_code", "").upper()
-                    # Si el código de la carta empieza con "LOB-" o "LOB-EN", la asignamos
-                    if set_code_api.startswith(f"{pack_code}-") or set_code_api.startswith(pack_code):
-                        rarity_key = normalize_rarity(s["set_rarity"])
-                        pools[rarity_key].add(card_id)
-                        added = True
-                        break  # Ya encontramos la versión de este pack
-
-                # Si por alguna razón la API no detalla el código, la mandamos a common como resguardo
-                if not added:
-                    pools["common"].add(card_id)
-
-            json_pools = {rarity: sorted(list(id_set)) for rarity, id_set in pools.items()}
-
-            pack_data = {
-                "id": pack_code,
-                "name": set_name,
-                "price": price,
-                "image": f"https://images.ygoprodeck.com/images/sets/{pack_code}.jpg",
-                "pool": json_pools
-            }
-
-            # Guardar el JSON individual del sobre
-            pack_filename = os.path.join(PACKS_DIR, f"{pack_code}.json")
-            with open(pack_filename, 'w', encoding='utf-8') as f:
-                json.dump(pack_data, f, indent=2, ensure_ascii=False)
-
-            available_packs.append(pack_code)
-            total = sum(len(lst) for lst in json_pools.values())
-            print(f"  ✅ {pack_code}.json creado con {total} cartas.")
+            available_packs.append(code)
+            total = sum(len(ids) for ids in pool.values())
+            print(f"  ✅ {code}.json creado con {total} cartas.")
 
         except Exception as e:
-            print(f"❌ Error procesando {pack_code}: {e}")
+            print(f"❌ Error procesando {code}: {e}")
 
-    # Generar el rules.json principal que actúa como índice
-    rules_index = {
+    # rules.json principal que actúa como índice
+    write_json(OUTPUT_RULES, {
         "pull_rates": PULL_RATES,
         "available_packs": available_packs,
         "goat_recommended_packs": GOAT_DEFAULT_PACKS,
         "goat_recommended_dp": GOAT_DEFAULT_DPS,
         "edison_recommended_packs": EDISON_DEFAULT_PACKS,
         "edison_recommended_dp": EDISON_DEFAULT_DPS,
-    }
-
-    with open(OUTPUT_RULES, 'w', encoding='utf-8') as f:
-        json.dump(rules_index, f, indent=2, ensure_ascii=False)
+    })
 
     print("\n🎉 Proceso completado. Revisa la carpeta /packs/ y rules.json.")
 

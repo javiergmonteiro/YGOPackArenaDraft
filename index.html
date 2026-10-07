@@ -121,7 +121,7 @@
                     <button onclick="setFilter('Trap')" class="btn-neon px-2 py-1 text-xs rounded">TRAP</button>
                 </div>
             </div>
-            <div id="trunk-container" class="flex-1 overflow-y-auto grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 content-start">
+            <div id="trunk-container" class="flex-1 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2 content-start">
                 <!-- Trunk cards injected here -->
             </div>
         </section>
@@ -152,12 +152,12 @@
     </main>
 
     <!-- Pack Opening Modal -->
-    <div id="pack-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col justify-center items-center">
-        <h2 class="text-3xl mb-8 tracking-widest text-[#00e5ff]" id="modal-title">PACK OPENED</h2>
-        <div id="pulled-cards" class="flex gap-4 mb-8 h-64">
+    <div id="pack-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center overflow-y-auto py-6">
+        <h2 class="mt-auto text-2xl sm:text-3xl mb-6 sm:mb-8 tracking-widest text-[#00e5ff]" id="modal-title">PACK OPENED</h2>
+        <div id="pulled-cards" class="grid grid-cols-5 gap-1.5 sm:gap-4 w-full max-w-[45rem] px-2 mb-6">
             <!-- Pulled cards go here -->
         </div>
-        <button onclick="closeModal()" class="btn-neon px-8 py-3 rounded text-xl">ACCEPT</button>
+        <button onclick="closeModal()" class="mb-auto btn-neon px-8 py-3 rounded text-xl shrink-0">ACCEPT</button>
     </div>
 
     <!-- Notification Container -->
@@ -747,7 +747,7 @@
                             <span class="text-gray-500 font-mono">(${totalInCat})</span>
                         </div>
                         ${totalInCat > 0
-                            ? `<div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5">${cardsHtml}</div>`
+                            ? `<div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1.5">${cardsHtml}</div>`
                             : `<p class="text-[10px] text-gray-600 italic">Empty</p>`}
                     </div>
                 `;
@@ -975,9 +975,9 @@
 
                     // Ponemos el "drop-in" en el contenedor para que anime la carta y la etiqueta juntas
                     const html = `
-                        <div class="relative group cursor-pointer h-full drop-in" onclick="showLargeCard(event, '${card.id}')">
+                        <div class="relative group cursor-pointer drop-in" onclick="showLargeCard(event, '${card.id}')">
                             <img src="${getCardImgSrc(card.id)}"
-                                 class="h-full rounded border-4 ${rarityClasses} transition-transform transform hover:scale-105"
+                                 class="w-full h-auto object-contain rounded border-2 sm:border-4 ${rarityClasses} transition-transform transform hover:scale-105"
                                  onerror="handleImgError(this, '${card.id}')">
 
                             <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-0.5 rounded border border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold whitespace-nowrap z-10">
@@ -985,7 +985,7 @@
                             </div>
                         </div>
                     `;
-                    container.innerHTML += html;
+                    container.insertAdjacentHTML('beforeend', html);
                 }, index * 150); // Mantiene el delay para el efecto cascada
             });
 
