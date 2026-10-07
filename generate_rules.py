@@ -14,7 +14,7 @@ PACKS_TO_FETCH = [
     {"name": "Dark Crisis", "price": 200, "code": "DCR"},
     {"name": "Ancient Sanctuary", "price": 250, "code": "AST"},
     {"name": "Soul of the Duelist", "price": 250, "code": "SOD"},
-    {"name": "Rise of Destiny", "price": 250, "code": "ROD"},
+    {"name": "Rise of Destiny", "price": 250, "code": "RDS"},
     {"name": "Flaming Eternity", "price": 250, "code": "FET"},
     {"name": "The Lost Millennium", "price": 250, "code": "TLM"},
     {"name": "Invasion of Chaos", "price": 300, "code": "IOC"},
@@ -30,9 +30,10 @@ PACKS_DIR = "packs"
 PULL_RATES = {
     "guaranteed_slot": {
         "rare": 75.0,
-        "super_rare": 15.0,
-        "ultra_rare": 8.0,
-        "secret_rare": 2.0
+        "super_rare": 25.0,
+        "ultra_rare": 15.0,
+        "secret_rare": 5.0,
+        "ultimate_rare": 5.0
     }
 }
 
@@ -41,6 +42,8 @@ def normalize_rarity(rarity_str):
     r = rarity_str.lower()
     if "secret rare" in r:
         return "secret_rare"
+    if "ultimate rare" in r:
+        return "ultimate_rare"
     elif "ultra rare" in r:
         return "ultra_rare"
     elif "super rare" in r:
@@ -75,7 +78,7 @@ def generate_packs():
 
             cards = response.json().get("data", [])
 
-            pools = {"common": set(), "rare": set(), "super_rare": set(), "ultra_rare": set(), "secret_rare": set()}
+            pools = {"common": set(), "rare": set(), "super_rare": set(), "ultra_rare": set(), "secret_rare": set(), "ultimate_rare": set()}
 
             for card in cards:
                 card_id = card["id"]

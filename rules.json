@@ -2,9 +2,10 @@
   "pull_rates": {
     "guaranteed_slot": {
       "rare": 75.0,
-      "super_rare": 15.0,
-      "ultra_rare": 8.0,
-      "secret_rare": 2.0
+      "super_rare": 25.0,
+      "ultra_rare": 15.0,
+      "secret_rare": 5.0,
+      "ultimate_rare": 5.0
     }
   },
   "available_packs": [
@@ -19,7 +20,7 @@
     "DCR",
     "AST",
     "SOD",
-    "ROD",
+    "RDS",
     "FET",
     "TLM",
     "IOC",

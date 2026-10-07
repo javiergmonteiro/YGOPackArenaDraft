@@ -430,15 +430,16 @@
 
             DP -= pack.price;
             updateDP();
-            renderShop(); // Actualiza botones de compra
+            renderShop();
 
             const pulled = generatePackCards(pack);
 
-            // Añadir al trunk
-            pulled.forEach(cardId => {
-                trunk[cardId] = (trunk[cardId] || 0) + 1;
+            // Guardamos en el Trunk correctamente usando card.id
+            pulled.forEach(card => {
+                trunk[card.id] = (trunk[card.id] || 0) + 1;
             });
 
+            // Llamamos al modal pasándole los objetos
             showPackModal(pulled);
             renderTrunk();
         }
@@ -451,38 +452,64 @@
 
         function generatePackCards(pack) {
             const rates = dbRules.pull_rates.guaranteed_slot;
-            const pulledCards = [];
+            const pulledCards = []; // Ahora guardará objetos: { id: "123", rarity: "common" }
 
-            // 1. Obtener 4 cartas comunes
-            for (let i = 0; i < 4; i++) {
+            // 1. Obtener 3 cartas comunes (Slots 1, 2 y 3)
+            for (let i = 0; i < 3; i++) {
                 let cardId = getRandomCardFromList(pack.pool.common);
-                if (cardId) pulledCards.push(cardId);
+                if (cardId) {
+                    pulledCards.push({ id: cardId, rarity: "common" });
+                }
             }
 
-            // 2. Resolver la 5ta carta (Slot de suerte)
-            const roll = Math.random() * 100; // Número aleatorio entre 0.0 y 100.0
-            let selectedRarity = "common"; // Si falla todo la tirada, la 5ta es Común
+            // 2. Obtener 1 carta Rara asegurada (Slot 4)
+            let guaranteedRareId = getRandomCardFromList(pack.pool.rare);
+            if (!guaranteedRareId) guaranteedRareId = getRandomCardFromList(pack.pool.common); // Fallback por si el sobre no tiene raras
+            if (guaranteedRareId) {
+                pulledCards.push({ id: guaranteedRareId, rarity: "rare" });
+            }
+
+            // 3. Resolver la 5ta carta (Slot de suerte: puede ser Común, Super, Ultra o Secret)
+            const roll = Math.random() * 100;
+            let selectedRarity = "common";
             let accum = 0;
 
-            // Evaluamos en orden de mayor a menor valor
+            // Evaluamos de más difícil a más fácil
             if (rates.secret_rare && roll < (accum += rates.secret_rare)) {
-                selectedRarity = "secret_rare";
+                selectedRarity = "secret_rare"; // Actuará como categoría "Top Tier"
             } else if (rates.ultra_rare && roll < (accum += rates.ultra_rare)) {
                 selectedRarity = "ultra_rare";
             } else if (rates.super_rare && roll < (accum += rates.super_rare)) {
                 selectedRarity = "super_rare";
-            } else if (rates.rare && roll < (accum += rates.rare)) {
-                selectedRarity = "rare";
             }
 
-            // Buscar una carta de la rareza elegida
-            let bonusCardId = getRandomCardFromList(pack.pool[selectedRarity]);
+            let bonusCardId = null;
+            let styleRarity = selectedRarity.replace('_rare', ''); // Extrae 'ultra', 'super', etc.
 
-            // Fallback: si el sobre no tiene de esa rareza, intenta dar una Rara y si no, Común
-            if (!bonusCardId) bonusCardId = getRandomCardFromList(pack.pool["rare"]);
-            if (!bonusCardId) bonusCardId = getRandomCardFromList(pack.pool["common"]);
+            if (selectedRarity === "secret_rare") {
+                // Juntamos TODAS las rarezas superiores a Ultra en una sola lista
+                let topTierPool = [];
+                const topRarities = ["secret_rare", "ultimate_rare", "ghost_rare", "starlight_rare", "prismatic_secret_rare"];
 
-            if (bonusCardId) pulledCards.push(bonusCardId);
+                topRarities.forEach(r => {
+                    if (pack.pool[r]) topTierPool = topTierPool.concat(pack.pool[r]);
+                });
+
+                bonusCardId = getRandomCardFromList(topTierPool);
+                styleRarity = "secret"; // Forzamos a que visualmente use el estilo Secret
+            } else {
+                bonusCardId = getRandomCardFromList(pack.pool[selectedRarity]);
+            }
+
+            // Fallback: si el sobre justo no tiene cartas de la rareza elegida, da una común
+            if (!bonusCardId) {
+                bonusCardId = getRandomCardFromList(pack.pool.common);
+                styleRarity = "common";
+            }
+
+            if (bonusCardId) {
+                pulledCards.push({ id: bonusCardId, rarity: styleRarity });
+            }
 
             return pulledCards;
         }
@@ -506,6 +533,20 @@
         function getCardData(id) {
             return dbCards.find(c => c.id == id);
         }
+
+        window.getRarityStyles = function(rarity) {
+            const styles = {
+                'common': 'border-gray-200 shadow-[0_0_15px_rgba(229,231,235,0.8)]',
+                'rare': 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]',
+                'super': 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]',
+                'ultra': 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.6)]',
+                'secret': 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.7)]'
+            };
+
+            // Convertimos a minúsculas por si le pasás "Rare" o "RARE"
+            const normalizedRarity = rarity ? rarity.toLowerCase() : 'common';
+            return styles[normalizedRarity] || styles['common'];
+        };
 
         function renderTrunk() {
             const container = document.getElementById('trunk-container');
@@ -720,23 +761,29 @@
             const container = document.getElementById('detail-modal-content');
             container.innerHTML = '';
 
+            // Le agregamos la propiedad "keys" a cada tier para agrupar
             const rarityConfig = {
-                secret_rare: { label: 'Secret Rare', color: 'text-purple-400 border-purple-500' },
-                ultra_rare:  { label: 'Ultra Rare',  color: 'text-yellow-400 border-yellow-500' },
-                super_rare:  { label: 'Super Rare',  color: 'text-teal-300 border-teal-500' },
-                rare:        { label: 'Rare',        color: 'text-blue-400 border-blue-500' },
-                common:      { label: 'Common',      color: 'text-gray-300 border-gray-600' }
+                top_tier:   { label: 'Secret / Ultimate', keys: ['secret_rare', 'ultimate_rare', 'ghost_rare', 'starlight_rare', 'prismatic_secret_rare'], color: 'text-purple-400 border-purple-500' },
+                ultra_rare: { label: 'Ultra Rare',  keys: ['ultra_rare'], color: 'text-yellow-400 border-yellow-500' },
+                super_rare: { label: 'Super Rare',  keys: ['super_rare'], color: 'text-teal-300 border-teal-500' },
+                rare:       { label: 'Rare',        keys: ['rare'],       color: 'text-blue-400 border-blue-500' },
+                common:     { label: 'Common',      keys: ['common'],     color: 'text-gray-300 border-gray-600' }
             };
 
             let totalCardsInPack = 0;
 
-            for (const [rarityKey, config] of Object.entries(rarityConfig)) {
-                const ids = pack.pool[rarityKey];
-                if (!ids || ids.length === 0) continue;
+            for (const [tierKey, config] of Object.entries(rarityConfig)) {
+                // Juntamos todos los IDs de las rarezas que correspondan a este Tier
+                let ids = [];
+                config.keys.forEach(k => {
+                    if (pack.pool[k]) ids = ids.concat(pack.pool[k]);
+                });
+
+                if (ids.length === 0) continue;
 
                 totalCardsInPack += ids.length;
 
-                // Generar grilla de imágenes
+                // Generar grilla de imágenes (el resto queda igual)
                 const cardsGridHtml = ids.map(id => {
                     const card = getCardData(id);
                     const cardName = card ? card.n : `Card #${id}`;
@@ -814,12 +861,26 @@
             const container = document.getElementById('pulled-cards');
             container.innerHTML = '';
 
-            cardIds.forEach((id, index) => {
-                // Pequeño delay en la animación para cada carta
+            // Ahora iteramos sobre los objetos "card"
+            cardIds.forEach((card, index) => {
                 setTimeout(() => {
-                    const html = `<img src="${getCardImgSrc(id)}" onerror="handleImgError(this, '${id}')" class="h-full rounded drop-in shadow-[0_0_15px_#00e5ff]">`;
+                    // Buscamos los estilos basados en la rareza
+                    const rarityClasses = getRarityStyles(card.rarity);
+
+                    // Ponemos el "drop-in" en el contenedor para que anime la carta y la etiqueta juntas
+                    const html = `
+                        <div class="relative group cursor-pointer h-full drop-in" onclick="showLargeCard(event, '${card.id}')">
+                            <img src="${getCardImgSrc(card.id)}"
+                                 class="h-full rounded border-4 ${rarityClasses} transition-transform transform hover:scale-105"
+                                 onerror="handleImgError(this, '${card.id}')">
+
+                            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-0.5 rounded border border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold whitespace-nowrap z-10">
+                                ${card.rarity}
+                            </div>
+                        </div>
+                    `;
                     container.innerHTML += html;
-                }, index * 150);
+                }, index * 150); // Mantiene el delay para el efecto cascada
             });
 
             modal.classList.remove('hidden');
